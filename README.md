@@ -49,23 +49,23 @@ We'll use [Scaleway](https://www.scaleway.com/en/) as a cloud provider. We recom
 
 4. Execute the plan
 
-  ```bash
-  terraform apply
-  ```
+    ```bash
+    terraform apply
+    ```
 
 5. Retrieve output values for our Ansible inventory file
 
-  ```bash
-  terraform output -json > terraform_values.json
-  ```
+    ```bash
+    terraform output -json > terraform_values.json
+    ```
 
 6. Edit values of our Ansible inventory file from Terraform output values
 
-  ```bash
-  cd .. # Go back to root of this repo
-  sudo apt install -y jq # Used to parse values
-  bash terraform_to_ansible_values.sh
-  ```
+    ```bash
+    cd .. # Go back to root of this repo
+    sudo apt install -y jq # Used to parse values
+    bash terraform_to_ansible_values.sh
+    ```
 
 ### 2. Deploying platform
 
