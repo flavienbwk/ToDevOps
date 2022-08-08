@@ -7,4 +7,6 @@ assignees: ''
 
 ---
 
-# How could this repository be improved ?
+**How could this repository be improved ?**
+
+**Reference to resource(s) to state this is a state-of-the-art technique**
