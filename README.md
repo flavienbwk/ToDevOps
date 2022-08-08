@@ -11,7 +11,7 @@ A basic thus state-of-the-art architecture to start your modern DevOps stack lea
 - Kubernetes : Softwares orchestration
   - Ingress : Cluster endpoint using domains
   - Linkerd : Service mesh for monitoring network & system metrics
-  - Fluentd : Operator for capturing apps logs
+  - Fluentd : Operator for capturing apps logs to an Elasticsearch cluster
   - ArgoCD : Infrastructure as Code (IaC) tool to fetch your apps
   - OpenEBS : Simplified storage
 - GitLab : registries, runners (CI/CD)
@@ -112,6 +112,10 @@ As I trust DevOps for being able to deeply transform small or big organizations 
 ## Found this repo useful ?
 
 Please consider leaving a **star**, sharing improvements with **pull requests** or [**sponsoring**](https://github.com/sponsors/flavienbwk) me.
+
+## Suggestions & feedbacks
+
+Feel free to make your expertise shine [by creating an issue](https://github.com/flavienbwk/ToDevOps/issues/new?assignees=&labels=&template=suggestion-or-feedback.md&title=%5BSUGGESTION%5D+) describing how to keep this repo state-of-the-art. I am extremely open to suggestions.
 
 ## Credits
 
