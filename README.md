@@ -127,3 +127,4 @@ Feel free to make your expertise shine [by creating an issue](https://github.com
 - https://www.google.com/books/edition/Building_Secure_and_Reliable_Systems/Kn7UxwEACAAJ
 - https://www.coursera.org/professional-certificates/sre-devops-engineer-google-cloud
 - https://www.cloudskillsboost.google/quests/141?locale=fr
+- DoD's [Platform One](https://software.af.mil/team/platformone/)
