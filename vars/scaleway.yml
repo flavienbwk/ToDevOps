@@ -5,15 +5,19 @@ registry_domain: registry.{{ domain }}
 registry_login_domain: "https://{{ registry_domain }}"
 linkerd_domain: linkerd.{{ domain }}
 kibana_domain: kibana.{{ domain }}
+argocd_domain: argocd.{{ domain }}
 
-# Elasticsearch instance for logs will be
-# installed on this node.
+# Node on which to install Elasticsearch (kube-logging)
 elastic_node_hostname: todevops-k8s-node-1
 
-# Authentication values for Linkerd dashboard
+# Linkerd Visualization configuration
 linkerd_viz_user: 'admin'
 linkerd_viz_password: 'admin'
 
+# ArgoCD configuration
+argocd_default_password: "mySuperSecurePassword"
+
+# Gitlab configuration
 gitlab_domain: gitlab.{{ domain }}
 gitlab_external_url: https://{{ gitlab_domain }}
 gitlab_root_password: "mySuperSecurePassword"

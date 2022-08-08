@@ -55,3 +55,9 @@
   tags: k8s-logging
   roles:
     - install_kubernetes_logging
+
+- hosts: "k8s-master"
+  become: false
+  tags: k8s-argocd
+  roles:
+    - install_kubernetes_argocd

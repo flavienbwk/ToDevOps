@@ -15,3 +15,4 @@
         {{ hostvars["master"].ansible_host }} {{ gitlab_domain }}
         {{ hostvars["master"].ansible_host }} {{ kibana_domain }}
         {{ hostvars["master"].ansible_host }} {{ linkerd_domain }}
+        {{ hostvars["master"].ansible_host }} {{ argocd_domain }}

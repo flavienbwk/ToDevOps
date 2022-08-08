@@ -1,0 +1,43 @@
+---
+# tasks file for install_kubernetes_argocd
+
+- name: Create argocd namespace
+  become: false
+  command: kubectl create ns argocd
+  register: argocd_ns_created
+  failed_when: False
+  no_log: True
+
+- name: Install ArgoCD
+  command: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.4.8/manifests/install.yaml
+  when: argocd_ns_created.rc == 0
+
+- name: Install htpasswd utils
+  shell: |
+    apt-get update && apt-get install -y apache2-utils
+
+- name: Patch ArgoCD default password
+  shell: |
+    kubectl patch secret -n argocd argocd-secret -p '{"stringData": { "admin.password": "'$(htpasswd -bnBC 10 "" {{ argocd_default_password }} | tr -d ':\n')'"}}'
+
+- name: Create ArgoCD tmp dir
+  command: mkdir -p /tmp/argocd
+  changed_when: False
+
+- name: Copy ArgoCD ingress file
+  become: false
+  copy:
+    src: ./ingress.yaml
+    dest: /tmp/argocd/ingress.yaml
+    mode: 0644
+
+- name: Replacing domain value in Ingress
+  replace:
+    path: "/tmp/argocd/ingress.yaml"
+    regexp: '(\{\{ argocd_domain \}\})'
+    replace: "{{ argocd_domain }}"
+  changed_when: False
+
+- name: Install ArgoCD ingress
+  command: kubectl apply -n argocd -f /tmp/argocd/ingress.yaml
+

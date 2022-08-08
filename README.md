@@ -89,21 +89,34 @@ This step is about deploying our Kubernetes cluster and its different services a
     # Setup K8S control plane and nodes
     ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-setup --extra-vars @./vars/scaleway.yml
 
-    # Setup and configure GitLab
+    # Install GitLab on Kubernetes
+    # https://gitlab.todevops.local/ (username: root, default password: mySuperSecurePassword)
     ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-gitlab --extra-vars @./vars/scaleway.yml
 
     # Install Linkerd on Kubernetes
+    # http://linkerd.todevops.local/ (username: admin, default password: admin)
     ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-linkerd --extra-vars @./vars/scaleway.yml
 
-    # Install Fluentd & Kibana on Kubernetes
+    # Install Fluentd, Elasticsearch & Kibana on Kubernetes
+    # http://kibana.todevops.local/ (no authentication)
     ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-logging --extra-vars @./vars/scaleway.yml
+
+    # Install ArgoCD on Kubernetes
+    # https://argocd.todevops.local/ (username: admin, default password: mySuperSecurePassword)
+    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-argocd --extra-vars @./vars/scaleway.yml
     ```
 
-    :warning: Security notice :
+5. (optional) Improve security by removing unrelevant Ingresses
 
-    We're here exposing Linkerd and Fluentd's Kibana through ingresses. This is NOT recommended : you might want to use the `kubectl port-forward` command to reach your services. 
+    We're here exposing Linkerd, Fluentd's Kibana and ArgoCD UI through ingresses for convenience. This is NOT recommended : you might want to use the `kubectl port-forward` command to reach your services.
 
     E.g: `kubectl port-forward -n linkerd-viz svc/web 8080:8084` on your K8S-authenticated VM and then `ssh -L 8080:localhost:8080 root@<VM-IP>` on your computer.
+
+    ```bash
+    kubectl delete ingress -n linkerd-viz web-ingress
+    kubectl delete ingress -n kube-logging kibana-ingress
+    kubectl delete ingress -n argocd argocd-ingress
+    ```
 
 ## Why this repo ?
 

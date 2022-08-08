@@ -1,0 +1,5 @@
+---
+# vars for install_kubernetes_argocd
+
+argocd_domain: "argocd.todevops.local"
+argocd_default_password: "mySuperSecurePassword"
