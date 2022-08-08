@@ -77,9 +77,16 @@
     - helm repo update
   when: gitlab_chart_deployed.rc > 0
 
+- name: Copy certificate generation file
+  become: false
+  copy:
+    src: ./runners-config.toml
+    dest: .
+    mode: 0644
+
 - name: Helm install of GitLab
   become: false
-  command: |
+  shell: |
     helm upgrade --install --version 6.2.2 gitlab gitlab/gitlab \
       --timeout 600s \
       --set global.edition=ce \
@@ -96,6 +103,8 @@
       --set gitlab.toolbox.backups.cron.persistence.storageClass=openebs-hostpath \
       --set gitlab.toolbox.persistence.storageClass=openebs-hostpath \
       --set gitlab-runner.runners.privileged=true \
+      --set gitlab-runner.runners.config="$(cat ./runners-config.toml)" \
+      --set gitlab-runner.gitlabUrl=http://gitlab-webservice-default.gitlab:8080/ \
       --namespace gitlab
   when: gitlab_chart_deployed.rc > 0
 

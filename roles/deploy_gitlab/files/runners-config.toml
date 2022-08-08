@@ -1,0 +1,14 @@
+[[runners]]
+  [runners.kubernetes]
+  url = "http://gitlab-webservice-default.gitlab:8080/"
+  image = "ubuntu:18.04"
+  {{- if .Values.global.minio.enabled }}
+  [runners.cache]
+    Type = "s3"
+    Path = "gitlab-runner"
+    Shared = true
+    [runners.cache.s3]
+      ServerAddress = "gitlab-minio-svc.gitlab:9000"
+      BucketName = "runner-cache"
+      Insecure = true
+  {{ end }}
