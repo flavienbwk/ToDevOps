@@ -1,0 +1,7 @@
+---
+- hosts: "localhost"
+  connection: "local"
+  become: true
+  become_method: sudo
+  roles:
+    - setup_domain_names

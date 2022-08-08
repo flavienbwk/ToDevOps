@@ -13,6 +13,7 @@ A basic thus state-of-the-art architecture to start your modern DevOps stack lea
   - Linkerd : Service mesh for monitoring network & system metrics
   - Fluentd : Operator for capturing apps logs
   - ArgoCD : Infrastructure as Code (IaC) tool to fetch your apps
+  - OpenEBS : Simplified storage
 - GitLab : registries, runners (CI/CD)
 - ReactJS Flask [boilerplate](https://github.com/flavienbwk/reactjs-flask-ldap-boilerplate) : an example of micro-services project
 
@@ -33,8 +34,6 @@ We'll use [Scaleway](https://www.scaleway.com/en/) as a cloud provider. We recom
 2. Run the following `export` commands replacing values by yours
 
     ```bash
-    cd ./plans
-
     export TF_VAR_SCW_PROJECT_ID="my-project-id"
     export TF_VAR_SCW_ACCESS_KEY="my-access-key"
     export TF_VAR_SCW_SECRET_KEY="my-secret-key"
@@ -43,6 +42,8 @@ We'll use [Scaleway](https://www.scaleway.com/en/) as a cloud provider. We recom
 3. Make sure there's no error by running init and plan commands
 
     ```bash
+    cd ./plans
+
     terraform init
     terraform plan
     ```
@@ -53,25 +54,56 @@ We'll use [Scaleway](https://www.scaleway.com/en/) as a cloud provider. We recom
     terraform apply
     ```
 
-5. Retrieve output values for our Ansible inventory file
+5. Edit values of our Ansible inventory file from Terraform output values
 
     ```bash
+    # Install JSON parser
+    sudo apt install -y jq
+
+    # Retrieve and set appropriate values
     terraform output -json > terraform_values.json
-    ```
-
-6. Edit values of our Ansible inventory file from Terraform output values
-
-    ```bash
-    cd .. # Go back to root of this repo
-    sudo apt install -y jq # Used to parse values
+    cd ..
     bash terraform_to_ansible_values.sh
     ```
 
-### 2. Deploying platform
+### 2. Deploying infrastructure services
 
 This step is about deploying our Kubernetes cluster and its different services as well as GitLab.
 
 1. Make sure `./inventories/scaleway.ini` values are valid
+
+2. Edit values accordingly to your infrastructure in `./vars/scaleway.yml` (may be unchanged)
+
+3. For setting-up local server domains, run the following command
+
+    ```bash
+    ansible-playbook -i inventories/scaleway.ini ./set_local_hosts.yml --extra-vars @./vars/scaleway.yml --ask-become-pass
+    ```
+
+4. Run the install
+
+    ```bash
+    # Install DNS, Docker and kubectl utils
+    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t base --extra-vars @./vars/scaleway.yml
+
+    # Setup K8S control plane and nodes
+    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-setup --extra-vars @./vars/scaleway.yml
+
+    # Setup and configure GitLab
+    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-gitlab --extra-vars @./vars/scaleway.yml
+
+    # Install Linkerd on Kubernetes
+    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-linkerd --extra-vars @./vars/scaleway.yml
+
+    # Install Fluentd & Kibana on Kubernetes
+    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-logging --extra-vars @./vars/scaleway.yml
+    ```
+
+    :warning: Security notice :
+
+    We're here exposing Linkerd and Fluentd's Kibana through ingresses. This is NOT recommended : you might want to use the `kubectl port-forward` command to reach your services. 
+
+    E.g: `kubectl port-forward -n linkerd-viz svc/web 8080:8084` on your K8S-authenticated VM and then `ssh -L 8080:localhost:8080 root@<VM-IP>` on your computer.
 
 ## Why this repo ?
 
@@ -80,6 +112,10 @@ As I trust DevOps for being able to deeply transform small or big organizations 
 ## Found this repo useful ?
 
 Please consider leaving a **star**, sharing improvements with **pull requests** or [**sponsoring**](https://github.com/sponsors/flavienbwk) me.
+
+## Credits
+
+- @[verovec](https://github.com/verovec) for Linkerd and Fluentd configurations :tada:
 
 ## More resources for your career in DevOps
 

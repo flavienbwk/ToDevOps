@@ -1,0 +1,4 @@
+---
+# defaults file for setup_kubernetes_node
+
+k8s_nodes_force_rejoin: false

@@ -1,0 +1,5 @@
+---
+# vars file for setup_kubernetes_node
+
+k8s_version: "1.22.11-00"
+k8s_internal_network: "10.244.0.0/16"

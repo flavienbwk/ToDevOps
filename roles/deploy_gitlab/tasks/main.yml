@@ -1,0 +1,140 @@
+---
+# tasks file for deploy_gitlab
+# See charts version mapping at https://docs.gitlab.com/charts/installation/version_mappings.html
+
+# Managing root password secret
+# https://docs.gitlab.com/charts/installation/secrets#initial-root-password
+
+- name: Create gitlab namespace
+  become: false
+  command: kubectl create ns gitlab
+  changed_when: False
+  failed_when: false
+  no_log: True
+
+- name: Check gitlab-root-password
+  become: false
+  command: kubectl get secret -n gitlab gitlab-gitlab-initial-root-password
+  register: get_gitlab_pwd_secret
+  changed_when: False
+  failed_when: false
+  no_log: True
+
+- name: Create gitlab-root-password
+  become: false
+  command: kubectl create secret -n gitlab generic gitlab-gitlab-initial-root-password --from-literal="password={{ gitlab_root_password }}"
+  when: get_gitlab_pwd_secret.rc > 0
+
+# / Managing root password secret
+
+
+# Managing GitLab certificate
+
+- name: Check Gitlab certs existance
+  become: false
+  command: kubectl get secret -n gitlab gitlab-wildcard-tls
+  register: get_gitlab_tls_secret
+  changed_when: False
+  failed_when: false
+  no_log: True
+
+- name: Copy certificate generation file
+  become: false
+  copy:
+    src: ./generate-wildcard-certificate.sh
+    dest: .
+    mode: 0644
+  when: get_gitlab_tls_secret.rc != 0
+
+- name: Generating Gitlab certs
+  become: false
+  command: bash generate-wildcard-certificate.sh {{ domain }}
+  when: get_gitlab_tls_secret.rc != 0
+
+- name: Create GitLab TLS secret
+  become: false
+  command: kubectl create -n gitlab secret tls gitlab-wildcard-tls --cert=./{{ domain }}.crt --key=./{{ domain }}.key
+  when: get_gitlab_tls_secret.rc != 0
+
+# / Managing GitLab certificate
+
+
+# Installing GitLab
+
+- name: Check Helm chart deployment
+  become: false
+  command: helm status -n gitlab gitlab
+  register: gitlab_chart_deployed
+  changed_when: False
+  failed_when: false
+  no_log: True
+
+- name: Helm charts install of GitLab
+  become: false
+  command: "{{ item }}"
+  with_items: 
+    - helm repo add gitlab https://charts.gitlab.io/
+    - helm repo update
+  when: gitlab_chart_deployed.rc > 0
+
+- name: Helm install of GitLab
+  become: false
+  command: |
+    helm upgrade --install --version 6.2.2 gitlab gitlab/gitlab \
+      --timeout 600s \
+      --set global.edition=ce \
+      --set global.hosts.domain={{ domain }} \
+      --set certmanager-install=false \
+      --set global.ingress.configureCertmanager=false \
+      --set global.ingress.tls.secretName=gitlab-wildcard-tls \
+      --set postgresql.image.tag=13.6.0 \
+      --set postgresql.persistence.storageClass=openebs-hostpath \
+      --set prometheus.server.persistentVolume.storageClass=openebs-hostpath \
+      --set minio.persistence.storageClass=openebs-hostpath \
+      --set redis.global.storageClass=openebs-hostpath \
+      --set gitlab.gitaly.persistence.storageClass=openebs-hostpath \
+      --set gitlab.toolbox.backups.cron.persistence.storageClass=openebs-hostpath \
+      --set gitlab.toolbox.persistence.storageClass=openebs-hostpath \
+      --set gitlab-runner.runners.privileged=true \
+      --namespace gitlab
+  when: gitlab_chart_deployed.rc > 0
+
+# / Installing GitLab
+
+
+# Creating default users
+
+- name: Get oauth token from {{ gitlab_external_url }}/oauth/token
+  uri: 
+    url: "{{ gitlab_external_url }}/oauth/token?grant_type=password&username=root&password={{ gitlab_root_password }}"
+    method: POST
+    return_content: yes
+    status_code: 200
+    follow_redirects: all
+    body_format: json
+    validate_certs: no
+  register: token
+  retries: 40 # up to 600 seconds
+  delay: 15
+  until: ("json" in token and "access_token" in token.json)
+
+- name: Create admin users
+  no_log: true # Not showing passwords in logs
+  uri:
+    url: "{{ gitlab_external_url }}/api/v4/users"
+    method: POST
+    headers: 
+      Authorization: "Bearer {{ token.json.access_token }}"
+    body_format: json
+    body:
+      email: "{{ item.email }}"
+      username: "{{ item.name }}"
+      name: "{{ item.name }}"
+      password: "{{ item.password }}"
+      admin: "true"
+      skip_confirmation: "true"
+    status_code: 201, 409 # 201 is created, 409 is already exists; makes idempotent
+    validate_certs: no
+  with_items: "{{ gitlab_admins | default([]) }}"
+
+# / Creating default users

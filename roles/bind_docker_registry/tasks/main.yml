@@ -1,0 +1,38 @@
+---
+# tasks file for bind_docker_registry
+
+- name: Wait for registry get accessible
+  uri:
+    url: "{{ registry_login_domain }}"
+    validate_certs: "no"
+    status_code: 200
+  register: result
+  until: result.status == 200 or result.status == 302
+  retries: 15
+  delay: 3
+
+- name: Adding user {{ ansible_user }} to docker
+  user: name={{ ansible_user }}
+        groups=docker
+        append=yes
+
+- name: Docker login
+  become: false
+  command: |
+    echo "{{ gitlab_password }}" | docker login "{{ registry_login_domain }}" -u "{{ gitlab_user }}" --password-stdin
+
+- name: Check regcred registration
+  become: false
+  command: kubectl get secret regcred
+  register: get_regcred_cmd
+  changed_when: False
+  failed_when: false
+
+- name: Remove regcred registration
+  become: false
+  command: kubectl delete secret regcred
+  when: get_regcred_cmd.rc == 0
+
+- name: Added regcred for default namespace
+  become: false
+  command: kubectl create secret generic regcred --from-file=.dockerconfigjson=$HOME/.docker/config.json --type=kubernetes.io/dockerconfigjson

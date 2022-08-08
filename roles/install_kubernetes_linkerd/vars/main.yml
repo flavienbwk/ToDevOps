@@ -1,0 +1,5 @@
+---
+# vars file for linkerd
+
+linkerd_viz_user: 'admin'
+linkerd_viz_password: 'admin'

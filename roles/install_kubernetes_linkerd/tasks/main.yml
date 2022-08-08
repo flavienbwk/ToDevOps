@@ -1,0 +1,99 @@
+---
+# tasks file for install_kubernetes_linkerd
+
+
+# Installing Linkerd
+
+- name: Download package linkerd
+  get_url:
+    url: "{{ linkerd_url }}"
+    dest: "{{ linkerd_install_path }}"
+    mode: 0755
+
+- name: Linking linkerd
+  file:
+    src: "{{ linkerd_install_path }}"
+    dest: "{{ linkerd_link }}"
+    state: link
+
+- name: Check Linkerd deployment
+  become: false
+  command: linkerd check
+  register: linkerd_deployed
+  changed_when: False
+  failed_when: false
+  no_log: True
+
+- name: Install linkerd
+  become: false
+  shell:
+    cmd: "linkerd install --set proxyInit.runAsRoot=true | kubectl apply -f -"
+  when: linkerd_deployed.rc > 0
+
+# / Installing Linkerd
+
+
+# Installing Linkerd-viz
+
+- name: Check Helm chart deployment
+  become: false
+  command: helm status -n linkerd linkerd-viz
+  register: linkerd_viz_chart_deployed
+  changed_when: False
+  failed_when: false
+  no_log: True
+
+- name: Add repo linkerd-viz
+  become: false
+  command: "{{ item }}"
+  with_items:
+    - helm repo add linkerd https://helm.linkerd.io/stable
+    - helm repo update
+  when: linkerd_viz_chart_deployed.rc > 0
+
+- name: Install linkerd-viz
+  become: false
+  command: "{{ item }}"
+  with_items:
+    - helm install linkerd-viz --namespace linkerd linkerd/linkerd-viz --create-namespace
+  when: linkerd_viz_chart_deployed.rc > 0
+
+- name: Check web-ingress-auth
+  become: false
+  command: kubectl get secret -n linkerd-viz web-ingress-auth
+  register: get_lkd_viz_ingress_auth
+  changed_when: False
+  failed_when: false
+  no_log: True
+
+- name: Create Linkerd basic auth password secret
+  become: false
+  command: openssl passwd -1 {{ linkerd_viz_password }}
+  register: lkd_viz_ba_pwd
+  when: get_lkd_viz_ingress_auth.rc > 0
+
+- name: Create Linkerd basic auth password secret
+  become: false
+  command: kubectl create secret -n linkerd-viz generic web-ingress-auth --from-literal="auth={{ linkerd_viz_user + ':' + lkd_viz_ba_pwd.stdout_lines[0] }}"
+  when: get_lkd_viz_ingress_auth.rc > 0
+
+- name: Copy linkerd-viz ingress file
+  become: false
+  copy:
+    src: "{{ linkerd_viz_manifest_folder }}"
+    dest: "{{ linkerd_viz_remote_destination_folder }}"
+    mode: 0644
+  when: linkerd_viz_chart_deployed.rc > 0
+
+- name: Replacing domain value in Ingress
+  replace:
+    path: "{{ linkerd_viz_remote_destination_folder }}/linkerd-viz/ingress.yaml"
+    regexp: '(\{\{ domain \}\})'
+    replace: "{{ domain }}"
+
+- name: Apply linkerd-viz ingress file
+  become: false
+  command: kubectl apply -f {{ linkerd_viz_remote_destination_folder }}/linkerd-viz/ingress.yaml
+  when: linkerd_viz_chart_deployed.rc > 0
+
+# / Installing Linkerd-viz

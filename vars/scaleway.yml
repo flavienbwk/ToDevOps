@@ -1,0 +1,26 @@
+---
+domain: "todevops.local"
+
+registry_domain: registry.{{ domain }}
+registry_login_domain: "https://{{ registry_domain }}"
+linkerd_domain: linkerd.{{ domain }}
+kibana_domain: kibana.{{ domain }}
+
+# Elasticsearch instance for logs will be
+# installed on this node.
+elastic_node_hostname: todevops-k8s-node-1
+
+# Authentication values for Linkerd dashboard
+linkerd_viz_user: 'admin'
+linkerd_viz_password: 'admin'
+
+gitlab_domain: gitlab.{{ domain }}
+gitlab_external_url: https://{{ gitlab_domain }}
+gitlab_root_password: "mySuperSecurePassword"
+gitlab_admins:
+  - name: "flav"
+    email: "flav@{{ domain }}"
+    password: "P@SSW0RD"
+  - name: "jane"
+    email: "jane@{{ domain }}"
+    password: "P@SSW0RD"

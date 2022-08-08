@@ -1,0 +1,7 @@
+---
+# vars file for setup_kubernetes_cp
+
+k8s_version: "1.22.11-00"
+k8s_internal_network: "10.244.0.0/16"
+helm_url: "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
+helm_install_path: "/usr/bin/helm.sh"

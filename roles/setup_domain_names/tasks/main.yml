@@ -1,0 +1,17 @@
+---
+# tasks file for setup_domain_names
+
+- name: Update /etc/hosts
+  become: true
+  blockinfile:
+      path: /etc/hosts
+      create: yes
+      block: |
+        {% for item in ["master", "node1", "node2"] %}
+        {{ hostvars[item].ansible_host }} {{ hostvars[item].machine_name }}.{{ domain }}
+        {{ hostvars[item].ansible_host }} {{ hostvars[item].machine_name }}
+        {% endfor %}
+        {{ hostvars["master"].ansible_host }} {{ registry_domain }}
+        {{ hostvars["master"].ansible_host }} {{ gitlab_domain }}
+        {{ hostvars["master"].ansible_host }} {{ kibana_domain }}
+        {{ hostvars["master"].ansible_host }} {{ linkerd_domain }}

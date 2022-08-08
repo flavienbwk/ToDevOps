@@ -1,0 +1,146 @@
+---
+# tasks file for setup_kubernetes_cp
+
+- name: Install kubelet and kubeadm
+  apt: 
+    name: "{{ packages }}"
+    state: present
+    update_cache: yes
+  vars:
+    packages:
+      - kubelet={{ k8s_version }}
+      - kubeadm={{ k8s_version }}
+
+- name: Download Helm binary
+  get_url:
+    url: "{{ helm_url }}"
+    dest: "{{ helm_install_path }}"
+    mode: 0700
+
+- name: Install Helm binary
+  command: bash "{{ helm_install_path }}"
+
+- name: Configure node ip
+  lineinfile:
+    create: yes
+    path: /etc/default/kubelet
+    line: "KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --node-ip={{ hostvars[inventory_hostname].ansible_host }}"
+
+- name: Check that the CP is running
+  become: false
+  command: kubectl get nodes
+  register: get_nodes_cmd
+  ignore_errors: true
+
+  # https://stackoverflow.com/questions/61373366/networkplugin-cni-failed-to-set-up-pod-xxxxx-network-failed-to-set-bridge-add
+- name: Fix flannel.1 network interface issue
+  command: "{{ item }}"
+  with_items:
+    - ip link set flannel.1 down
+    - ip link delete flannel.1
+  when: '"flannel.1" in {{ ansible_facts.interfaces }}'
+
+- name: Fix cni0 network interface issue
+  command: "{{ item }}"
+  with_items:
+    - ip link set cni0 down
+    - ip link delete cni0
+  when: '"cni0" in {{ ansible_facts.interfaces }}'
+
+- name: Restart containerd
+  service:
+    name: containerd
+    daemon_reload: yes
+    state: restarted
+
+- name: Restart kubelet
+  service:
+    name: kubelet
+    daemon_reload: yes
+    state: restarted
+
+- name: Reset kubeadm
+  command: kubeadm reset -f
+  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+
+# https://github.com/docker/for-linux/issues/219
+- name: Fixing cgroup issues
+  command: "{{ item }}"
+  with_items:
+    - apt-get install -y cgroup-tools
+    - mkdir -p /sys/fs/cgroup/systemd
+    - mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
+  ignore_errors: true
+
+- name: Initialize the Kubernetes cluster using kubeadm with name {{ ansible_hostname }}
+  command: kubeadm init --node-name {{ ansible_hostname }} --pod-network-cidr={{ k8s_internal_network }}
+  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+
+- name: Setup kubeconfig for user
+  command: "{{ item }}"
+  with_items:
+    - rm -rf ~{{ ansible_user }}/.kube
+    - mkdir -p ~{{ ansible_user }}/.kube
+    - cp -i /etc/kubernetes/admin.conf ~{{ ansible_user }}/.kube/config
+    - chown {{ ansible_user }}:{{ ansible_user }} ~{{ ansible_user }}/.kube/config
+  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+
+- name: Wait for all control-plane pods become created
+  become: false
+  shell: "kubectl get po --namespace=kube-system --selector tier=control-plane --output=jsonpath='{.items[*].metadata.name}'"
+  register: control_plane_pods_created
+  until: item in control_plane_pods_created.stdout
+  retries: 10
+  delay: 5
+  with_items:
+    - etcd
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+
+- name: Wait for control-plane pods become ready
+  become: false
+  command: "kubectl wait --namespace=kube-system --for=condition=Ready pods --selector tier=control-plane --timeout=600s"
+  register: control_plane_pods_ready
+
+- name: Install flannel pod network
+  become: false
+  command: kubectl create -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+
+- name: Install Ingress controller
+  become: false
+  command: "{{item}}"
+  with_items:
+    - kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/baremetal/deploy.yaml
+    - kubectl patch deployment ingress-nginx-controller -n ingress-nginx -p '{"spec":{"template":{"spec":{"hostNetwork":true}}}}'
+    - kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission
+  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+
+- name: Install OpenEBS
+  become: false
+  command: "{{item}}"
+  with_items:
+    - helm repo add openebs https://openebs.github.io/charts
+    - helm repo update
+    - helm install openebs openebs/openebs --namespace openebs --create-namespace
+  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+
+- name: Removing master taint
+  command: kubectl taint nodes {{ ansible_hostname }} node-role.kubernetes.io/master:NoSchedule-
+  ignore_errors: true
+
+- name: Generate join command
+  become: false
+  shell: kubeadm token create --print-join-command
+  register: join_command
+
+- name: Copy join command to local file
+  become: false
+  local_action: copy content="{{ join_command.stdout_lines[0] }}" dest="./join-command"
+
+- name: Copy K8S config file
+  fetch: 
+    src: "/etc/kubernetes/admin.conf"
+    dest: "./config"
+    flat: yes

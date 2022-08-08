@@ -1,0 +1,25 @@
+---
+# tasks file for install_kubernetes_logging
+
+- name: Copy kube-logging chart
+  copy:
+    src: "{{ kube_logging_chart_path }}"
+    dest: "{{ kube_logging_remote_chart_path }}"
+    mode: 0644
+
+- name: Check Helm chart deployment
+  become: false
+  command: helm status -n kube-logging kube-logging
+  register: kube_logging_chart_deployed
+  changed_when: False
+  failed_when: false
+  no_log: True
+
+- name: Install kube-logging
+  command: |
+    helm install kube-logging {{ kube_logging_remote_chart_path }}/kube-logging \
+      --set kibana.host={{ kibana_domain }} \
+      --set elasticsearch.nodeHostname={{ elastic_node_hostname }} \
+      --namespace kube-logging \
+      --create-namespace
+  when: kube_logging_chart_deployed.rc > 0

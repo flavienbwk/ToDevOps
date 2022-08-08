@@ -1,0 +1,16 @@
+---
+# defaults file for linkerd
+
+linkerd_install_dir: /usr/local/bin
+linkerd_branch: stable
+linkerd_version: 2.11.4
+linkerd_mirror: https://github.com/linkerd/linkerd2/releases/download
+linkerd_os: linux-amd64
+
+linkerd_install_file: linkerd2-cli-{{ linkerd_branch }}-{{ linkerd_version }}-{{ linkerd_os }}
+linkerd_url: '{{ linkerd_mirror }}/{{ linkerd_branch }}-{{ linkerd_version }}/{{ linkerd_install_file }}'
+linkerd_install_path: '{{ linkerd_install_dir }}/{{ linkerd_install_file }}'
+linkerd_link: '{{ linkerd_install_dir }}/linkerd'
+linkerd_viz_remote_destination_folder: '/tmp'
+
+linkerd_viz_manifest_folder: './linkerd-viz'

@@ -1,0 +1,91 @@
+---
+# tasks file for setup_kubernetes_node
+
+- name: Install kubelet and kubeadm
+  apt: 
+    name: "{{ packages }}"
+    state: present
+    update_cache: yes
+  vars:
+    packages:
+      - kubelet={{ k8s_version }}
+      - kubeadm={{ k8s_version }}
+
+# https://github.com/docker/for-linux/issues/219
+- name: Fixing cgroup issues
+  command: "{{ item }}"
+  with_items:
+    - apt-get install -y cgroup-tools
+    - mkdir -p /sys/fs/cgroup/systemd
+    - mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
+  ignore_errors: true
+
+- name: Configure node ip
+  lineinfile:
+    create: yes
+    path: /etc/default/kubelet
+    line: "KUBELET_EXTRA_ARGS=--cgroup-driver=systemd --node-ip={{ hostvars[inventory_hostname].ansible_host }}"
+
+- name: Restart kubelet
+  service:
+    name: kubelet
+    daemon_reload: yes
+    state: restarted
+
+- name: Check that the node joined
+  become: false
+  shell: kubectl get nodes
+  register: get_nodes_cmd
+  ignore_errors: true
+
+  # https://stackoverflow.com/questions/61373366/networkplugin-cni-failed-to-set-up-pod-xxxxx-network-failed-to-set-bridge-add
+- name: Fix flannel.1 network interface issue
+  command: "{{ item }}"
+  with_items:
+    - ip link set flannel.1 down
+    - ip link delete flannel.1
+  when: '"flannel.1" in {{ ansible_facts.interfaces }}'
+
+- name: Fix cni0 network interface issue
+  command: "{{ item }}"
+  with_items:
+    - ip link set cni0 down
+    - ip link delete cni0
+  when: '"cni0" in {{ ansible_facts.interfaces }}'
+
+- name: Restart containerd
+  service:
+    name: containerd
+    daemon_reload: yes
+    state: restarted
+
+- name: Restart kubelet
+  service:
+    name: kubelet
+    daemon_reload: yes
+    state: restarted
+
+- name: Reset kubeadm
+  command: kubeadm reset -f
+  when: k8s_nodes_force_rejoin or get_nodes_cmd.rc != 0
+
+- name: Copy the join command to server location
+  copy: src=join-command dest=/tmp/join-command.sh mode=0777
+  when: k8s_nodes_force_rejoin or get_nodes_cmd.rc != 0
+
+- name: Join the node to cluster
+  command: sh /tmp/join-command.sh
+  when: k8s_nodes_force_rejoin or get_nodes_cmd.rc != 0
+
+- name: Setup kubeconfig folder for user
+  command: "{{ item }}"
+  with_items:
+    - rm -rf ~{{ ansible_user }}/.kube
+    - mkdir -p ~{{ ansible_user }}/.kube
+  when: k8s_nodes_force_rejoin or get_nodes_cmd.rc != 0
+
+- name: Copy K8S config file
+  copy: 
+    src: "./config"
+    dest: "~{{ ansible_user }}/.kube/config"
+  when: k8s_nodes_force_rejoin or get_nodes_cmd.rc != 0

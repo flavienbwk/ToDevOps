@@ -1,0 +1,4 @@
+---
+# vars file for setup_kubernetes_utils
+k8s_version: "1.22.11-00"
+docker_version: "5:19.03.15~3-0~debian-stretch"

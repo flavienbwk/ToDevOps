@@ -1,0 +1,57 @@
+---
+- hosts: "k8s-master,k8s-nodes"
+  become: true
+  become_method: sudo
+  tags: base
+  roles:
+    - setup_domain_names
+    - install_kubernetes_utils
+  tasks:
+    - name: "Set Docker daemon configuration"
+      copy:
+        dest: "/etc/docker/daemon.json"
+        content: "{ \"insecure-registries\" : [\"{{ registry_domain }}\"], \"exec-opts\": [\"native.cgroupdriver=systemd\"] }"
+    - name: "Restart Docker"
+      service:
+        name: docker
+        daemon_reload: yes
+        state: restarted
+    # Tackling issue : https://stackoverflow.com/questions/61519057/kubectl-logs-no-preferred-addresses-found-for-a-specific-container-in-a-pod
+    - name: "Attributing node IP to VM interface"
+      command: "ip addr add {{ hostvars[inventory_hostname].ansible_host }} dev ens2"
+      ignore_errors: true
+
+- hosts: "k8s-master"
+  become: true
+  become_method: sudo
+  tags: k8s-setup
+  roles:
+    - setup_kubernetes_cp
+
+- hosts: "k8s-nodes"
+  become: true
+  become_method: sudo
+  tags: k8s-setup
+  roles:
+    - setup_kubernetes_node
+
+- hosts: "node1"
+  become: true
+  become_method: sudo
+  tags: k8s-gitlab
+  roles:
+    - deploy_gitlab
+    - bind_docker_registry
+
+- hosts: "k8s-master"
+  become: true
+  become_method: sudo
+  tags: k8s-linkerd
+  roles:
+    - install_kubernetes_linkerd
+
+- hosts: "k8s-master"
+  become: false
+  tags: k8s-logging
+  roles:
+    - install_kubernetes_logging

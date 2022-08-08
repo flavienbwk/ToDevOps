@@ -1,0 +1,7 @@
+---
+# defaults file for deploy_gitlab
+
+gitlab_domain: gitlab.{{ domain }}
+gitlab_external_url: https://{{ gitlab_domain }}
+gitlab_root_password: "mySuperSecurePassword"
+gitlab_admins: []

@@ -1,0 +1,5 @@
+---
+# default file for install_kubernetes_logging
+
+kube_logging_chart_path: './charts/kube-logging'
+kube_logging_remote_chart_path: '/tmp'

@@ -1,0 +1,6 @@
+---
+# defaults file for bind_docker_registry
+
+registry_login_domain: "https://registry.todevops.local"
+gitlab_user: "root"
+gitlab_password: ""

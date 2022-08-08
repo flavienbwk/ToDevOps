@@ -1,0 +1,4 @@
+---
+# defaults file for setup_kubernetes_cp
+
+k8s_nodes_force_recreation: false

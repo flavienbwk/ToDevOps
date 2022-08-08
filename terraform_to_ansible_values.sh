@@ -45,4 +45,8 @@ sed -i -E 's/master ansible_host=([0-9.]{1,3})+/master ansible_host='$k8s_master
 sed -i -E 's/node1 ansible_host=([0-9.]{1,3})+/node1 ansible_host='$k8s_node_1_public_ip'/g' "$inventory_path"
 sed -i -E 's/node2 ansible_host=([0-9.]{1,3})+/node2 ansible_host='$k8s_node_2_public_ip'/g' "$inventory_path"
 
+sed -i -E 's/master(.*)machine_name=(.*)/master\1machine_name='$k8s_master_name'/g' "$inventory_path"
+sed -i -E 's/node1(.*)machine_name=(.*)/node1\1machine_name='$k8s_node_1_name'/g' "$inventory_path"
+sed -i -E 's/node2(.*)machine_name=(.*)/node2\1machine_name='$k8s_node_2_name'/g' "$inventory_path"
+
 echo -e "Success : values replaced !"

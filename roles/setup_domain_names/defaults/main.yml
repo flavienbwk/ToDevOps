@@ -1,0 +1,8 @@
+---
+# defaults file for setup_domain_names
+
+domain: "todevops.local"
+gitlab_domain: "gitlab.{{ domain }}"
+registry_domain: "registry.{{ domain }}"
+fluentd_domain: "fluentd.{{ domain }}"
+kibana_domain: "kibana.{{ domain }}"
