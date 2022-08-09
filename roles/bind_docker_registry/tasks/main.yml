@@ -18,8 +18,9 @@
 
 - name: Docker login
   become: false
-  command: |
-    echo "{{ gitlab_password }}" | docker login "{{ registry_login_domain }}" -u "{{ gitlab_user }}" --password-stdin
+  command: docker login -u "{{ gitlab_user }}" --password-stdin "{{ registry_login_domain }}"
+  args:
+    stdin: "{{ gitlab_password }}"
 
 - name: Check regcred registration
   become: false

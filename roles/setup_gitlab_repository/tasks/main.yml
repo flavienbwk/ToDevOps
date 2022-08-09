@@ -61,13 +61,17 @@
   with_items:
     - mkdir -p "/tmp/{{ internal_repository_name }}"
     - git clone "{{ public_repository_to_clone }}" "/tmp/{{ internal_repository_name }}"
+    - cd "/tmp/{{ internal_repository_name }}"
+    - rm -rf .git
 
-- name: Push repository to GitLab
+- name: Init & push repository to GitLab
   shell: "{{ item }}"
   args:
     chdir: "/tmp/{{ internal_repository_name }}"
   with_items:
-    - git remote remove origin
+    - git init
+    - git add .
+    - git commit -m "Initial import"
     - git remote add origin git@{{ gitlab_shell_url }}:{{ gitlab_user }}/{{ internal_repository_name }}.git
-    - git fetch --all
-    - git push --set-upstream  main
+    #- git pull origin main --allow-unrelated-histories
+    - git push --set-upstream main
