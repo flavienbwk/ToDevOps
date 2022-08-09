@@ -84,26 +84,26 @@ This step is about deploying our Kubernetes cluster and its different services a
 
     ```bash
     # Install DNS, Docker and kubectl utils
-    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t base --extra-vars @./vars/scaleway.yml
+    ansible-playbook -i inventories/scaleway.ini ./playbooks/infrastructure.yml -t base --extra-vars @./vars/scaleway.yml
 
     # Setup K8S control plane and nodes
-    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-setup --extra-vars @./vars/scaleway.yml
+    ansible-playbook -i inventories/scaleway.ini ./playbooks/infrastructure.yml -t k8s-setup --extra-vars @./vars/scaleway.yml
 
     # Install GitLab on Kubernetes
     # https://gitlab.todevops.local/ (username: root, default password: mySuperSecurePassword)
-    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-gitlab --extra-vars @./vars/scaleway.yml
+    ansible-playbook -i inventories/scaleway.ini ./playbooks/infrastructure.yml -t k8s-gitlab --extra-vars @./vars/scaleway.yml
 
     # Install Linkerd on Kubernetes
     # http://linkerd.todevops.local/ (username: admin, default password: admin)
-    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-linkerd --extra-vars @./vars/scaleway.yml
+    ansible-playbook -i inventories/scaleway.ini ./playbooks/infrastructure.yml -t k8s-linkerd --extra-vars @./vars/scaleway.yml
 
     # Install Fluentd, Elasticsearch & Kibana on Kubernetes
     # http://kibana.todevops.local/ (no authentication)
-    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-logging --extra-vars @./vars/scaleway.yml
+    ansible-playbook -i inventories/scaleway.ini ./playbooks/infrastructure.yml -t k8s-logging --extra-vars @./vars/scaleway.yml
 
     # Install ArgoCD on Kubernetes
     # https://argocd.todevops.local/ (username: admin, default password: mySuperSecurePassword)
-    ansible-playbook -i inventories/scaleway.ini ./infrastructure.yml -t k8s-argocd --extra-vars @./vars/scaleway.yml
+    ansible-playbook -i inventories/scaleway.ini ./playbooks/infrastructure.yml -t k8s-argocd --extra-vars @./vars/scaleway.yml
     ```
 
 5. (optional) Improve security by removing unrelevant Ingresses
@@ -116,6 +116,17 @@ This step is about deploying our Kubernetes cluster and its different services a
     kubectl delete ingress -n linkerd-viz web-ingress
     kubectl delete ingress -n kube-logging kibana-ingress
     kubectl delete ingress -n argocd argocd-ingress
+    ```
+
+### 3. Setting up continuous deployment (CD)
+
+Now our infrastructure is set-up and ready, we're going to setup ArgoCD so it deploys our [repo](https://github.com/flavienbwk/reactjs-flask-ldap-boilerplate) from our GitLab instance.
+
+1. Run the setup
+
+    ```bash
+    # Registers SSH keys to "root" GitLab account
+    ansible-playbook -i inventories/scaleway.ini ./playbooks/setup-continuous-deployment.yml -t import-repository --extra-vars @./vars/scaleway.yml --extra-vars "gitlab_password={{ gitlab_root_password }}"
     ```
 
 ## Why this repo ?

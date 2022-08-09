@@ -1,0 +1,59 @@
+---
+# tasks file for setup_gitlab_ssh_key
+
+- name: Wait for GitLab to get accessible
+  uri:
+    url: "{{ gitlab_external_url }}"
+    validate_certs: "no"
+    status_code: 200
+    follow_redirects: all
+  register: result
+  until: result.status == 200 or result.status == 302
+  retries: 10
+  delay: 5
+
+- name: Check user HOME directory
+  command: echo $HOME
+  register: user_home_cmd
+  changed_when: False
+
+- name: Check that SSH keys exists
+  stat:
+    path: "{{ user_home_cmd.stdout_lines[0] }}/.ssh/id_rsa.pub"
+  register: ssh_pkey
+
+- name: Generate SSH keys if doesn't exist
+  command: ssh-keygen -t rsa -N "" -f "{{ user_home_cmd.stdout_lines[0] }}/.ssh/id_rsa"
+  when: not ssh_pkey.stat.exists
+
+- name: Get oauth token from {{ gitlab_external_url }}/oauth/token
+  uri: 
+    url: "{{ gitlab_external_url }}/oauth/token?grant_type=password&username={{ gitlab_user }}&password={{ gitlab_password }}"
+    method: POST
+    return_content: yes
+    status_code: 200
+    follow_redirects: all
+    body_format: json
+    validate_certs: no
+  register: token
+  retries: 3
+  delay: 5
+  until: ("json" in token and "access_token" in token.json)
+
+- name: Get pub SSH keys content
+  command: cat "{{ user_home_cmd.stdout_lines[0] }}/.ssh/id_rsa.pub"
+  register: ssh_pkey_content
+  changed_when: False
+
+- name: Add server's SSH key to GitLab
+  uri:
+    url: "{{ gitlab_external_url }}/api/v4/user/keys"
+    method: POST
+    headers: 
+      Authorization: "Bearer {{ token.json.access_token }}"
+    body_format: json
+    body:
+      key: "{{ ssh_pkey_content.stdout_lines[0] }}"
+      title: "{{ ansible_hostname }}"
+    status_code: 201, 400 # 201 is created, 400 is already exists; makes idempotent
+    validate_certs: no

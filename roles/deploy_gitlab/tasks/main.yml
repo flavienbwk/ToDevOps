@@ -91,6 +91,7 @@
       --timeout 600s \
       --set global.edition=ce \
       --set global.hosts.domain={{ domain }} \
+      --set global.shell.port=2222 \
       --set certmanager-install=false \
       --set global.ingress.configureCertmanager=false \
       --set global.ingress.tls.secretName=gitlab-wildcard-tls \
@@ -147,3 +148,21 @@
   with_items: "{{ gitlab_admins | default([]) }}"
 
 # / Creating default users
+
+
+# Configure Ingress for SSH use with GitLab
+
+- name: Copy ingress SSH file
+  become: false
+  copy:
+    src: ./ingress-ssh-gitlab.yaml
+    dest: /tmp/ingress-ssh-gitlab.yaml
+    mode: 0644
+
+- name: Create Ingress SSH configmap
+  command: kubectl apply -f /tmp/ingress-ssh-gitlab.yaml
+
+# TODO(flavienbwk): MODIFIER --tcp-services-configmap dans le déploiement ingress https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/exposing-tcp-udp-services.md
+# - '--tcp-services-configmap=$(POD_NAMESPACE)/tcp-gitlab-ssh-configmap'
+
+# / Configure Ingress for SSH use with GitLab
