@@ -61,8 +61,11 @@
   with_items:
     - mkdir -p "/tmp/{{ internal_repository_name }}"
     - git clone "{{ public_repository_to_clone }}" "/tmp/{{ internal_repository_name }}"
-    - cd "/tmp/{{ internal_repository_name }}"
-    - rm -rf .git
+
+- name: Remove .git
+  shell: rm -rf .git
+  args:
+    chdir: "/tmp/{{ internal_repository_name }}"
 
 - name: Init & push repository to GitLab
   shell: "{{ item }}"
@@ -72,6 +75,8 @@
     - git init
     - git add .
     - git commit -m "Initial import"
-    - git remote add origin git@{{ gitlab_shell_url }}:{{ gitlab_user }}/{{ internal_repository_name }}.git
-    #- git pull origin main --allow-unrelated-histories
-    - git push --set-upstream main
+    - git remote add origin ssh://git@{{ gitlab_shell_url }}/{{ gitlab_user }}/{{ internal_repository_name }}.git
+    - git checkout -b main || true
+    - git config pull.rebase false
+    - git pull --allow-unrelated-histories origin main
+    - GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push --set-upstream origin main

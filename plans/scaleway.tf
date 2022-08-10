@@ -56,7 +56,7 @@ resource "scaleway_instance_server" "k8s_master" {
 
 resource "scaleway_instance_server" "k8s_node_1" {
   project_id = var.SCW_PROJECT_ID
-  type       = "DEV1-M"
+  type       = "DEV1-L"
   image      = "ubuntu_jammy"
   name       = "todevops-k8s-node-1"
 
@@ -73,7 +73,7 @@ resource "scaleway_instance_server" "k8s_node_1" {
 resource "scaleway_instance_server" "k8s_node_2" {
   project_id = var.SCW_PROJECT_ID
   name       = "todevops-k8s-node-2"
-  type       = "DEV1-M"
+  type       = "DEV1-L"
   image      = "ubuntu_jammy"
 
   tags = ["k8s-nodes", "k8s_node_2"]

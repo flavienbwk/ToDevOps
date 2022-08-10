@@ -49,6 +49,11 @@
   tags: k8s-linkerd
   roles:
     - install_kubernetes_linkerd
+  tasks:
+    - name: "Tagging GitLab for Linkerd monitoring"
+      become: false
+      shell: kubectl get svc -n gitlab gitlab-nginx-ingress-defaultbackend -o yaml | linkerd inject - | kubectl apply -f -
+      failed_when: false
 
 - hosts: "k8s-master"
   become: false
