@@ -6,6 +6,10 @@ A basic thus state-of-the-art architecture to start your modern DevOps stack lea
 
 ![ToDevOps architecture schema](./schema.jpg)
 
+## Why this repo ?
+
+As I trust DevOps for being able to deeply transform small or big organizations in order to deliver quickly and more reliably, I am currently (2022) transitionning from pure software to DevOps engineering. This repository compiles my current knowledge on which and how DevOps technologies can be deployed to allow an IT team to work efficiently.
+
 ## Stack
 
 - Terraform : instanciate 3 VMs on Scaleway
@@ -135,10 +139,6 @@ Now our infrastructure is set-up and ready, we're going to setup ArgoCD so it de
     # Configure ArgoCD for our repository
     ansible-playbook -i inventories/scaleway.ini ./playbooks/setup-continuous-deployment.yml -t configure-argocd-repo --extra-vars @./vars/scaleway.yml --extra-vars "gitlab_user=root"
     ```
-
-## Why this repo ?
-
-As I trust DevOps for being able to deeply transform small or big organizations in order to deliver quickly and more reliably, I am currently (2022) transitionning from pure software to DevOps engineering. This repository compiles my current knowledge on which and how DevOps technologies can be deployed to allow an IT team to work efficiently.
 
 ## Found this repo useful ?
 
