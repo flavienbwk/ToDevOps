@@ -41,3 +41,11 @@
 - name: Install ArgoCD ingress
   command: kubectl apply -n argocd -f /tmp/argocd/ingress.yaml
 
+- name: "Install ArgoCD CLI"
+  become: true
+  command: "{{ item }}"
+  with_items:
+    - curl -SL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+    - chmod +x /usr/local/bin/argocd
+  changed_when: False
+
