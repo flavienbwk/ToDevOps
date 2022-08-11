@@ -182,9 +182,18 @@
     - kubectl apply -f /tmp/dashboard-sa-crb.yml
   when: kgetns_kdashboard.rc != 0
 
-- name: Install Kubernetes metrics server
-  command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+- name: Copy Kubernetes metrics server configuration file
+  become: false
+  copy:
+    src: ./metrics-server.yml
+    dest: /tmp/metrics-server.yml
+    mode: 0644
 
+- name: Install Kubernetes metrics server
+  command: "{{ item }}"
+  with_items:
+    - kubectl apply -f /tmp/metrics-server.yml # TODO(flavienbwk): Avoid --kubelet-insecure-tls
+    - kubectl patch deployment -n kube-system metrics-server -p '{"spec":{"template":{"spec":{"hostNetwork":true}}}}'
 - name: Removing master taint
   command: kubectl taint nodes {{ ansible_hostname }} node-role.kubernetes.io/master:NoSchedule-
   ignore_errors: true
