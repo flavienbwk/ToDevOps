@@ -29,7 +29,7 @@ emailAddress=
 # Generate our Private Key, CSR and Certificate
 openssl genrsa -out "$DOMAIN.key" 2048
 openssl req -new -subj "$(echo -n "$SUBJ" | tr "\n" "/")" -key "$DOMAIN.key" -out "$DOMAIN.csr"
-openssl x509 -req -days 3650 -in "$DOMAIN.csr" -extfile <(printf "subjectAltName=DNS:$DOMAIN,DNS:gitlab.$DOMAIN,DNS:registry.$DOMAIN") -signkey "$DOMAIN.key" -out "$DOMAIN.crt"
+openssl x509 -req -days 3650 -in "$DOMAIN.csr" -extfile <(printf "subjectAltName=DNS:$DOMAIN,DNS:*.$DOMAIN,DNS:gitlab.$DOMAIN,DNS:registry.$DOMAIN,DNS:kas.$DOMAIN,DNS:minio.$DOMAIN") -signkey "$DOMAIN.key" -out "$DOMAIN.crt"
 rm "$DOMAIN.csr"
 
 echo ""

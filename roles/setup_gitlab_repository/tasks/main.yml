@@ -1,0 +1,82 @@
+---
+# tasks file for setup_gitlab_ssh_key
+
+- name: Wait for GitLab to get accessible
+  uri:
+    url: "{{ gitlab_external_url }}"
+    validate_certs: "no"
+    status_code: 200
+    follow_redirects: all
+  register: result
+  until: result.status == 200 or result.status == 302
+  retries: 10
+  delay: 5
+
+- name: Get oauth token from {{ gitlab_external_url }}/oauth/token
+  uri: 
+    url: "{{ gitlab_external_url }}/oauth/token?grant_type=password&username={{ gitlab_user }}&password={{ gitlab_password }}"
+    method: POST
+    return_content: yes
+    status_code: 200
+    follow_redirects: all
+    body_format: json
+    validate_certs: no
+  register: token
+  retries: 3 # up to 600 seconds
+  delay: 5
+  until: ("json" in token and "access_token" in token.json)
+
+- name: Create new GitLab repository
+  uri:
+    url: "{{ gitlab_external_url }}/api/v4/projects"
+    method: POST
+    headers: 
+      Authorization: "Bearer {{ token.json.access_token }}"
+    body_format: json
+    body:
+      name: "{{ internal_repository_name }}"
+      description: "Auto-imported ToDevOps project"
+    status_code: 201, 400 # 201 is created, 400 is already exists; makes idempotent
+    validate_certs: no
+
+- name: Configure git
+  command: "{{ item }}"
+  with_items:
+    - apt-get update
+    - apt-get install -y git
+    - git config --global user.name "{{ gitlab_user }}" 
+    - git config --global user.email "{{ gitlab_user_email }}"
+
+- name: Check that repository dir exist
+  stat:
+    path: "/tmp/{{ internal_repository_name }}"
+  register: repo_dir
+
+- name: Remove repo dir on existence
+  command: rm -rf "/tmp/{{ internal_repository_name }}"
+  when: repo_dir.stat.exists
+
+- name: Clone repository
+  command: "{{ item }}"
+  with_items:
+    - mkdir -p "/tmp/{{ internal_repository_name }}"
+    - git clone "{{ public_repository_to_clone }}" "/tmp/{{ internal_repository_name }}"
+
+- name: Remove .git
+  shell: rm -rf .git
+  args:
+    chdir: "/tmp/{{ internal_repository_name }}"
+
+- name: Init & push repository to GitLab
+  shell: "{{ item }}"
+  args:
+    chdir: "/tmp/{{ internal_repository_name }}"
+  with_items:
+    - git init
+    - git add .
+    - git commit -m "Initial import"
+    - git remote add origin ssh://git@{{ gitlab_shell_url }}/{{ gitlab_user }}/{{ internal_repository_name }}.git
+    - git checkout -b main || true
+    - git config pull.rebase false
+    - git pull --allow-unrelated-histories origin main
+    - GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git push --set-upstream origin main

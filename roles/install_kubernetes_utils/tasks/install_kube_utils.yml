@@ -33,3 +33,12 @@
   vars:
     packages:
       - kubectl={{ k8s_version }}
+
+- name: Download Helm binary
+  get_url:
+    url: "{{ helm_url }}"
+    dest: "{{ helm_install_path }}"
+    mode: 0700
+
+- name: Install Helm binary
+  command: bash "{{ helm_install_path }}"

@@ -11,15 +11,6 @@
       - kubelet={{ k8s_version }}
       - kubeadm={{ k8s_version }}
 
-- name: Download Helm binary
-  get_url:
-    url: "{{ helm_url }}"
-    dest: "{{ helm_install_path }}"
-    mode: 0700
-
-- name: Install Helm binary
-  command: bash "{{ helm_install_path }}"
-
 - name: Configure node ip
   lineinfile:
     create: yes
@@ -30,6 +21,7 @@
   become: false
   command: kubectl get nodes
   register: get_nodes_cmd
+  changed_when: False
   ignore_errors: true
 
   # https://stackoverflow.com/questions/61373366/networkplugin-cni-failed-to-set-up-pod-xxxxx-network-failed-to-set-bridge-add
@@ -63,6 +55,10 @@
   command: kubeadm reset -f
   when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
 
+- stat: path=/sys/fs/cgroup/systemd
+  register: check_cgroup_file_exist
+  changed_when: false
+
 # https://github.com/docker/for-linux/issues/219
 - name: Fixing cgroup issues
   command: "{{ item }}"
@@ -70,7 +66,7 @@
     - apt-get install -y cgroup-tools
     - mkdir -p /sys/fs/cgroup/systemd
     - mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
-  ignore_errors: true
+  when: not check_cgroup_file_exist.stat.exists
 
 - name: Initialize the Kubernetes cluster using kubeadm with name {{ ansible_hostname }}
   command: kubeadm init --node-name {{ ansible_hostname }} --pod-network-cidr={{ k8s_internal_network }}
@@ -102,20 +98,58 @@
   become: false
   command: "kubectl wait --namespace=kube-system --for=condition=Ready pods --selector tier=control-plane --timeout=600s"
   register: control_plane_pods_ready
+  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+
+- name: Check if flannel is installed
+  become: false
+  shell: kubectl get po -A | grep flannel
+  register: check_flannel_install
+  changed_when: False
+  failed_when: False
 
 - name: Install flannel pod network
   become: false
   command: kubectl create -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
-  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+  when: check_flannel_install.rc != 0
+
+- name: Copy TCP Ingress configuration
+  become: false
+  copy:
+    src: ./ingress-tcp-services.yml
+    dest: /tmp/ingress-tcp-services.yml
+    mode: 0644
+
+- name: Copy TCP Ingress configuration
+  become: false
+  copy:
+    src: ./ingress-baremetal.yml
+    dest: /tmp/ingress-baremetal.yml
+    mode: 0644
+
+- name: Copy TCP Ingress configuration
+  become: false
+  copy:
+    src: ./nginx-ingress-svc-controller-patch.yml
+    dest: /tmp/nginx-ingress-svc-controller-patch.yml
+    mode: 0644
 
 - name: Install Ingress controller
   become: false
   command: "{{item}}"
   with_items:
-    - kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/baremetal/deploy.yaml
+    - kubectl apply -f /tmp/ingress-tcp-services.yml
+    - kubectl apply -f /tmp/ingress-baremetal.yml
     - kubectl patch deployment ingress-nginx-controller -n ingress-nginx -p '{"spec":{"template":{"spec":{"hostNetwork":true}}}}'
+    - kubectl patch service ingress-nginx-controller -n ingress-nginx --patch "$(cat /tmp/nginx-ingress-svc-controller-patch.yml)" 
     - kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission
-  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+  failed_when: False
+
+- name: Check OpenEBS helm install
+  become: false
+  command: helm status -n openebs openebs
+  register: helm_status_openebs
+  failed_when: False
+  changed_when: False
 
 - name: Install OpenEBS
   become: false
@@ -124,7 +158,32 @@
     - helm repo add openebs https://openebs.github.io/charts
     - helm repo update
     - helm install openebs openebs/openebs --namespace openebs --create-namespace
-  when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
+  when: helm_status_openebs.rc != 0
+
+- name: Check K8S Dashboard install
+  become: false
+  command: kubectl get ns kubernetes-dashboard
+  register: kgetns_kdashboard
+  failed_when: False
+  changed_when: False
+
+- name: Copy Kubernetes Dashboard configuration file
+  become: false
+  copy:
+    src: ./dashboard-sa-crb.yml
+    dest: /tmp/dashboard-sa-crb.yml
+    mode: 0644
+
+- name: Install Kubernetes dashboard
+  become: false
+  command: "{{ item }}"
+  with_items:
+    - kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.6.0/aio/deploy/recommended.yaml
+    - kubectl apply -f /tmp/dashboard-sa-crb.yml
+  when: kgetns_kdashboard.rc != 0
+
+- name: Install Kubernetes metrics server
+  command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 
 - name: Removing master taint
   command: kubectl taint nodes {{ ansible_hostname }} node-role.kubernetes.io/master:NoSchedule-

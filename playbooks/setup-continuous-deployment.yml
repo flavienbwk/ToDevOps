@@ -1,0 +1,7 @@
+---
+- hosts: "k8s-master"
+  become: false
+  tags: import-repository
+  roles:
+    - setup_gitlab_ssh_key
+    - setup_gitlab_repository

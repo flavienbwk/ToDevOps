@@ -1,0 +1,11 @@
+---
+# defaults file for setup_gitlab_ssh_key
+
+gitlab_external_url: "https://gitlab.todevops.local"
+gitlab_shell_url: "gitlab.todevops.local:2222"
+gitlab_user: "root"
+gitlab_user_email: "root@todevops.local"
+gitlab_password: ""
+
+public_repository_to_clone: "https://github.com/flavienbwk/reactjs-flask-ldap-boilerplate"
+internal_repository_name: "reactjs-flask-ldap-boilerplate"

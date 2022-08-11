@@ -1,0 +1,6 @@
+---
+# defaults file for setup_gitlab_ssh_key
+
+gitlab_external_url: "https://gitlab.todevops.local"
+gitlab_user: "root"
+gitlab_password: ""

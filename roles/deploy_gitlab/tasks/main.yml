@@ -62,7 +62,6 @@
 # Installing GitLab
 
 - name: Check Helm chart deployment
-  become: false
   command: helm status -n gitlab gitlab
   register: gitlab_chart_deployed
   changed_when: False
@@ -70,9 +69,8 @@
   no_log: True
 
 - name: Helm charts install of GitLab
-  become: false
-  command: "{{ item }}"
-  with_items: 
+  shell: "{{ item }}"
+  with_items:
     - helm repo add gitlab https://charts.gitlab.io/
     - helm repo update
   when: gitlab_chart_deployed.rc > 0
@@ -91,6 +89,7 @@
       --timeout 600s \
       --set global.edition=ce \
       --set global.hosts.domain={{ domain }} \
+      --set global.shell.port=2222 \
       --set certmanager-install=false \
       --set global.ingress.configureCertmanager=false \
       --set global.ingress.tls.secretName=gitlab-wildcard-tls \

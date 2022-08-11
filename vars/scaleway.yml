@@ -7,9 +7,6 @@ linkerd_domain: linkerd.{{ domain }}
 kibana_domain: kibana.{{ domain }}
 argocd_domain: argocd.{{ domain }}
 
-# Node on which to install Elasticsearch (kube-logging)
-elastic_node_hostname: todevops-k8s-node-1
-
 # Linkerd Visualization configuration
 linkerd_viz_user: 'admin'
 linkerd_viz_password: 'admin'
@@ -20,6 +17,7 @@ argocd_default_password: "mySuperSecurePassword"
 # Gitlab configuration
 gitlab_domain: gitlab.{{ domain }}
 gitlab_external_url: https://{{ gitlab_domain }}
+gitlab_shell_url: "gitlab.todevops.local:2222"
 gitlab_root_password: "mySuperSecurePassword"
 gitlab_admins:
   - name: "flav"
@@ -28,3 +26,7 @@ gitlab_admins:
   - name: "jane"
     email: "jane@{{ domain }}"
     password: "P@SSW0RD"
+
+# Repo to clone to our gitlab and deploy with ArgoCD
+public_repository_to_clone: "https://github.com/flavienbwk/reactjs-flask-ldap-boilerplate"
+internal_repository_name: "reactjs-flask-ldap-boilerplate"

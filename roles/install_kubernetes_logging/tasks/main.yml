@@ -19,7 +19,6 @@
   command: |
     helm install kube-logging {{ kube_logging_remote_chart_path }}/kube-logging \
       --set kibana.host={{ kibana_domain }} \
-      --set elasticsearch.nodeHostname={{ elastic_node_hostname }} \
       --namespace kube-logging \
       --create-namespace
   when: kube_logging_chart_deployed.rc > 0
