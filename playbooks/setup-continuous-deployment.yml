@@ -2,6 +2,33 @@
 - hosts: "k8s-master"
   become: false
   tags: import-repository
+  name: "Initializing example repository in GitLab"
   roles:
     - setup_gitlab_ssh_key
     - setup_gitlab_repository
+
+- hosts: "k8s-master"
+  become: false
+  tags: configure-argocd-repo
+  name: "Configuring ArgoCD to watch the repository"
+  tasks:
+    - name: Check user HOME directory
+      become: false
+      command: echo $HOME
+      register: user_home_cmd
+      changed_when: False
+    - name: "Configuring ArgoCD to add our private repo"
+      become: false
+      shell: "{{ item }}"
+      with_items:
+        - kubectl delete secret -n argocd {{ internal_repository_name }} || true
+        - kubectl create secret generic -n argocd {{ internal_repository_name }} --from-file=sshPrivateKey={{ user_home_cmd.stdout_lines[0] }}/.ssh/id_rsa
+        - kubectl label secret -n argocd {{ internal_repository_name }} argocd.argoproj.io/secret-type=repository
+        - argocd login argocd.todevops.local --insecure --username admin --password "{{ gitlab_root_password }}"
+    - name: "Apply ArgoCD configuration for private repository"
+      become: false
+      shell: "{{ item }}"
+      with_items:
+        - argocd repo add git@{{ hostvars["master"].ansible_host }}:2222/{{ gitlab_user }}/{{ internal_repository_name }}.git --insecure-ignore-host-key --ssh-private-key-path "{{ user_home_cmd.stdout_lines[0] }}/.ssh/id_rsa" --name "{{ internal_repository_name }}"
+        - kubectl create ns demo-app || true
+        - argocd app create {{ internal_repository_name }} --project default --repo git@{{ hostvars["master"].ansible_host }}:2222/{{ gitlab_user }}/{{ internal_repository_name }}.git --path k8s --dest-namespace demo-app --dest-server https://kubernetes.default.svc
