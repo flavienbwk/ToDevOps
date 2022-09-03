@@ -38,19 +38,6 @@
   failed_when: false
   no_log: True
 
-- name: Copy certificate generation file
-  become: false
-  copy:
-    src: ./generate-wildcard-certificate.sh
-    dest: .
-    mode: 0644
-  when: get_gitlab_tls_secret.rc != 0
-
-- name: Generating Gitlab certs
-  become: false
-  command: bash generate-wildcard-certificate.sh {{ domain }}
-  when: get_gitlab_tls_secret.rc != 0
-
 - name: Create GitLab TLS secret
   become: false
   command: kubectl create -n gitlab secret tls gitlab-wildcard-tls --cert=./{{ domain }}.crt --key=./{{ domain }}.key

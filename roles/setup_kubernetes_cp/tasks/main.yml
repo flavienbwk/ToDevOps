@@ -100,6 +100,10 @@
   register: control_plane_pods_ready
   when: k8s_nodes_force_recreation or get_nodes_cmd.rc != 0
 
+- name: Removing master taint
+  command: kubectl taint nodes {{ ansible_hostname }} node-role.kubernetes.io/master:NoSchedule-
+  ignore_errors: true
+
 - name: Check if flannel is installed
   become: false
   shell: kubectl get po -A | grep flannel
@@ -137,12 +141,63 @@
   become: false
   command: "{{item}}"
   with_items:
-    - kubectl apply -f /tmp/ingress-tcp-services.yml
     - kubectl apply -f /tmp/ingress-baremetal.yml
-    - kubectl patch deployment ingress-nginx-controller -n ingress-nginx -p '{"spec":{"template":{"spec":{"hostNetwork":true}}}}'
-    - kubectl patch service ingress-nginx-controller -n ingress-nginx --patch "$(cat /tmp/nginx-ingress-svc-controller-patch.yml)" 
-    - kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission
+    - kubectl apply -f /tmp/ingress-tcp-services.yml
   failed_when: False
+
+- name: Update NodePorts svc Ingress controller
+  become: false
+  shell: |
+    kubectl patch service ingress-nginx-controller -n ingress-nginx --patch "$(cat /tmp/nginx-ingress-svc-controller-patch.yml)"
+  failed_when: False
+
+- name: Check MetalLB helm install
+  become: false
+  command: helm status -n metallb metallb
+  register: helm_status_metallb
+  failed_when: False
+  changed_when: False
+
+- name: Edit kube-proxy config
+  become: false
+  shell: |
+    kubectl get configmap kube-proxy -n kube-system -o yaml | \
+    sed -e "s/strictARP: false/strictARP: true/" | \
+    kubectl apply -f - -n kube-system
+  when: helm_status_metallb.rc != 0
+
+- name: Install MetalLB
+  become: false
+  command: "{{item}}"
+  with_items:
+    - helm repo add metallb https://metallb.github.io/metallb
+    - helm repo update
+    - helm install metallb metallb/metallb --namespace metallb --create-namespace
+  when: helm_status_metallb.rc != 0
+
+- name: Copy MetalLB IP address pool configuration
+  become: false
+  copy:
+    src: ./ip-address-pool.yml
+    dest: /tmp/ip-address-pool.yml
+    mode: 0644
+  when: helm_status_metallb.rc != 0
+
+- name: Update MetalLB IP address pool configuration
+  become: false
+  command: "{{item}}"
+  with_items:
+    - sed -i -E 's/k8s_master_public_ip/{{ hostvars["master"].ansible_host }}/g' /tmp/ip-address-pool.yml
+  when: helm_status_metallb.rc != 0
+
+- name: Create MetalLB IP address pool configuration
+  become: false
+  command: "kubectl create -f /tmp/ip-address-pool.yml"
+  when: helm_status_metallb.rc != 0
+  register: create_metallb_address_pool
+  until: create_metallb_address_pool.rc == 0
+  retries: 15
+  delay: 6
 
 - name: Check OpenEBS helm install
   become: false
@@ -185,10 +240,6 @@
 - name: Install Kubernetes metrics server
   command: kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 
-- name: Removing master taint
-  command: kubectl taint nodes {{ ansible_hostname }} node-role.kubernetes.io/master:NoSchedule-
-  ignore_errors: true
-
 - name: Generate join command
   become: false
   shell: kubeadm token create --print-join-command
@@ -203,3 +254,42 @@
     src: "/etc/kubernetes/admin.conf"
     dest: "./config"
     flat: yes
+
+- name: Copy certificate generation file
+  become: false
+  copy:
+    src: ./generate-wildcard-certificate.sh
+    dest: .
+    mode: 0644
+
+- name: Generating certs
+  become: false
+  command: bash generate-wildcard-certificate.sh {{ domain }}
+- name: Create .pem from .crt and .key
+  become: true
+  shell: |
+    touch ./{{ domain }}.pem
+    cat ./{{ domain }}.crt >> ./{{ domain }}.pem
+    cat ./{{ domain }}.key >> ./{{ domain }}.pem
+
+- name: Download HAproxy
+  apt: 
+    name: "haproxy"
+    state: present
+    update_cache: yes
+
+- name: Copy HAproxy configuration
+  become: false
+  copy:
+    src: ./haproxy.cfg
+    dest: /etc/haproxy/haproxy.cfg
+    mode: 0644
+
+- name: Update HAproxy configuration
+  become: true
+  command: "{{item}}"
+  with_items:
+    - sed -i -E 's/k8s_master_public_ip/{{ hostvars["master"].ansible_host }}/g' /etc/haproxy/haproxy.cfg
+    - sed -i -E 's/443/443 ssl crt \/root\/todevops.local.pem/g' /etc/haproxy/haproxy.cfg
+    - service haproxy restart
+  failed_when: False

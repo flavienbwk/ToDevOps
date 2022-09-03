@@ -35,7 +35,7 @@
   roles:
     - setup_kubernetes_node
 
-- hosts: "node1"
+- hosts: "k8s-master"
   become: true
   become_method: sudo
   tags: k8s-gitlab
