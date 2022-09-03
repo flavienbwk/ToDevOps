@@ -20,7 +20,7 @@
   become: false
   command: docker login -u "{{ gitlab_user }}" --password-stdin "{{ registry_login_domain }}"
   args:
-    stdin: "{{ gitlab_password }}"
+    stdin: "{{ gitlab_root_password }}"
 
 - name: Check regcred registration
   become: false

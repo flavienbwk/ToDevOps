@@ -150,7 +150,7 @@ Feel free to make your expertise shine [by creating an issue](https://github.com
 
 ## Credits
 
-- @[verovec](https://github.com/verovec) for Linkerd and Fluentd configurations :tada:
+- @[verovec](https://github.com/verovec) for Ingress, Linkerd and Fluentd configurations :tada:
 
 ## More resources for your career in DevOps
 
