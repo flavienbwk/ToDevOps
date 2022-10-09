@@ -2,8 +2,6 @@
 
 A basic thus state-of-the-art architecture to start your modern DevOps stack learning.
 
-:warning: Stage : **alpha** (under active development, for testing only)
-
 ![ToDevOps architecture schema](./schema.jpg)
 
 ## Stack
